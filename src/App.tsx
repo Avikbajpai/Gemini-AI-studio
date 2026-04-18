@@ -9,6 +9,7 @@ import { UserRole, TicketStatus } from './types';
 import { TicketResponseDTO, DashboardStatsDTO } from './api/dtos';
 import { Plus, Search, Filter, Loader2, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { LoginModal } from './components/LoginModal';
 
 const API_BASE = 'http://localhost:8080/api';
 
@@ -21,7 +22,8 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [selectedTicket, setSelectedTicket] = useState<TicketResponseDTO | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState({ id: 'u1', name: 'Alice Customer', role: UserRole.CUSTOMER });
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [showLogin, setShowLogin] = useState(true);
   const [engineers, setEngineers] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -30,13 +32,16 @@ export default function App() {
   const fetchAll = async () => {
     try {
       setLoading(true);
-      const headers = { 'x-user-id': currentUser.id, 'x-user-role': currentUser.role };
-      
+      const headers = {
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${localStorage.getItem("token")}`};
+      console.log(headers);
+      console.log(localStorage.getItem("token"));
       const [ticketsRes, statsRes, engRes, usersRes] = await Promise.all([
         fetch(`${API_BASE}/tickets`, { headers }),
         fetch(`${API_BASE}/dashboard/stats`, { headers }),
         fetch(`${API_BASE}/engineers`, { headers }),
-        fetch(`${API_BASE}/users`, { headers })
+        fetch(`${API_BASE}/users`, { headers }) 
       ]);
 
       const [ticketsData, statsData, engData, usersData] = await Promise.all([
@@ -57,6 +62,14 @@ export default function App() {
     }
   };
 
+
+useEffect(() => {
+  const user = localStorage.getItem("user");
+  if (user) {
+    setCurrentUser(JSON.parse(user));
+  }
+}, []);
+
   useEffect(() => {
     fetchAll();
   }, [currentUser]);
@@ -65,7 +78,9 @@ export default function App() {
     try {
       const res = await fetch(`${API_BASE}/tickets`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id, 'x-user-role': currentUser.role },
+        headers : {
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${localStorage.getItem("token")}`},
         body: JSON.stringify(data)
       });
       if (res.ok) {
@@ -80,7 +95,9 @@ export default function App() {
     try {
       const res = await fetch(`${API_BASE}/tickets/${id}/status`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id, 'x-user-role': currentUser.role },
+        headers: {
+  'Content-Type': 'application/json',
+   'Authorization': `Bearer ${localStorage.getItem("token")}`},
         body: JSON.stringify({ status })
       });
       if (res.ok) {
@@ -95,7 +112,9 @@ export default function App() {
     try {
       const res = await fetch(`${API_BASE}/tickets/${id}/assign`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id, 'x-user-role': currentUser.role },
+        headers: {
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${localStorage.getItem("token")}`},
         body: JSON.stringify({ engineerId })
       });
       if (res.ok) {
@@ -106,26 +125,31 @@ export default function App() {
     } catch (e) { console.error(e); }
   };
 
-  const switchRole = (role: UserRole) => {
-    if (role === UserRole.CUSTOMER) setCurrentUser({ id: 'u1', name: 'Alice Customer', role });
-    if (role === UserRole.ENGINEER) setCurrentUser({ id: 'u2', name: 'Bob Engineer', role });
-    if (role === UserRole.ADMIN) setCurrentUser({ id: 'u3', name: 'Charlie Admin', role });
-    fetchAll();
-  };
 
   const filteredTickets = tickets.filter(t => {
     const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) || t.id.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter ? t.status === statusFilter : true;
     return matchesSearch && matchesStatus;
   });
+ 
+if (!currentUser) {
+  return (
+    <LoginModal
+      onLogin={(data: any) => {
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.data));
+        setCurrentUser(data.data);
+      }}
+    />
+  );
+}
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col pt-[60px]">
       <Sidebar 
         currentTab={tab} 
         setTab={setTab} 
-        currentUser={currentUser} 
-        switchRole={switchRole}
+        currentUser={currentUser}
       />
 
       <div className="flex-1 p-5 lg:grid lg:grid-cols-4 lg:gap-5 max-w-[1400px] mx-auto w-full">
@@ -252,7 +276,7 @@ export default function App() {
                 {user.name}
               </td>
               <td className="px-4 py-3">
-                <Badge variant="default">{user.role}</Badge>
+                <Badge variant="neutral">{user.role}</Badge>
               </td>
             </tr>
           ))}
