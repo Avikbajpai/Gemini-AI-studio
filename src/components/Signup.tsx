@@ -22,7 +22,7 @@ export default function Signup({ onSwitch }: { onSwitch: () => void }) {
 
     try {
       const res = await fetch(
-        "http://localhost:8080/api/user",
+        "https://tms-nexus-api.onrender.com/api/user",
         {
           method: "POST",
           headers: {
